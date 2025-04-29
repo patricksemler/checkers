@@ -3,7 +3,6 @@ import { AppRegistry, Text, View, StyleSheet, Image, TextInput, ImageBackground,
 import Constants from 'expo-constants';
 import { StatusBar } from 'expo-status-bar';
 
-
 let deviceHeight = Dimensions.get('window').height;
 let deviceWidth = Dimensions.get('window').width;
 
@@ -85,14 +84,29 @@ export default class App extends Component {
   render() {
     return (
       <View style={styles.container}>
+        <View style={styles.board}>
+          {this.state.board.map((row, rowIndex) => (
+            <View style={styles.row}>
+              {row.map((piece, colIndex) => (
+                <View 
+                  style={[styles.square, 
+                    {backgroundColor: (rowIndex + colIndex) % 2 == 0 ? 'white' : 'black'}
+                  ]}
+                >
+                  {piece && (
+                    <TouchableHighlight>
+                      <Text style={styles.piece}>
+                        {piece === 'red' ? '🔴' : '⚫'}
+                      </Text>
+                    </TouchableHighlight>
+                  )}
 
-        <TouchableHighlight
-          style={styles.button}
-          onPress={() => this.movePiece(5, 0, 4, 1)}
-        >
-          <Text style={styles.buttonText}>Click Me</Text>
-        </TouchableHighlight>
-      
+                </View>
+              ))}
+            </View>
+          ))}
+        </View>
+    
         <StatusBar style="auto" />
       </View>
     );
@@ -102,7 +116,8 @@ export default class App extends Component {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    height: deviceHeight,
+    width: deviceWidth,
     backgroundColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center',
@@ -116,5 +131,24 @@ const styles = StyleSheet.create({
     color: 'black',
     fontSize: 20,
     fontWeight: 'bold',
+  },
+  board: {
+    width: deviceWidth * 8 / 10,
+    height: deviceWidth * 8 / 10,
+    flexDirection: 'column',
+    borderColor: 'black',
+    borderWidth: 1,
+  },
+  row: {
+    flex: 1,
+    flexDirection: 'row',
+  },
+  square: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  piece: {
+    fontSize: 24,
   },
 });
