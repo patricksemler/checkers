@@ -43,9 +43,15 @@ export default class App extends Component {
   }));
 
   isValidMove = (row1, col1, row2, col2) => {
+    let matchesTurn = this.isCorrectTurn(row1, col1);
     let spaceAvailable = this.isSpaceAvailable(row2, col2);
     let diagonal = this.isDiagonal(row1, col1, row2, col2);
     let directional = this.isDirectional(row1, row2);
+
+    if (!matchesTurn) {
+      console.log('Incorrect turn');
+      return false;
+    }
 
     if (!spaceAvailable) {
       console.log('Space is not available');
@@ -63,6 +69,10 @@ export default class App extends Component {
     }
 
     return true;
+  };
+
+  isCorrectTurn = (row, col) => {
+    return this.state.board[row][col] === this.state.turn;
   };
 
   isSpaceAvailable = (row, col) => {
@@ -94,7 +104,12 @@ export default class App extends Component {
                   ]}
                 >
                   {piece && (
-                    <TouchableHighlight>
+                    <TouchableHighlight
+                      onPress={() => this.movePiece(rowIndex, colIndex, 
+                        this.state.turn === 'red' ? rowIndex - 1 : rowIndex + 1, 
+                        this.state.turn === 'red' ? colIndex - 1 : colIndex + 1)
+                      }
+                    >
                       <Text style={styles.piece}>
                         {piece === 'red' ? '🔴' : '⚫'}
                       </Text>
@@ -137,7 +152,7 @@ const styles = StyleSheet.create({
     height: deviceWidth * 8 / 10,
     flexDirection: 'column',
     borderColor: 'black',
-    borderWidth: 1,
+    borderWidth: 5,
   },
   row: {
     flex: 1,
