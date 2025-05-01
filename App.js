@@ -38,17 +38,22 @@ export default class App extends Component {
   movePiece = (row1, col1, row2, col2) => {
     if (!this.isValidMove(row1, col1, row2, col2)) return;
 
-    console.log(this.state.board);
+    let capturablePiece = this.hasCapturablePiece(row1, col1, row2, col2);
 
     const newBoard = JSON.parse(JSON.stringify(this.state.board));
     newBoard[row1][col1] = null;
     newBoard[row2][col2] = this.state.turn;
 
+    if (capturablePiece) {
+      console.log("Capturing piece");
+      newBoard[row1 + (row2 - row1) / 2][col1 + (col2 - col1) / 2] = null;
+    } else {
+      console.log("No capture");
+    }
+
     this.setState({ board: newBoard, selectedPiece: { row: null, col: null } });
 
     this.switchTurn();
-
-    console.log(this.state.board);
   };
 
   switchTurn = () =>
@@ -57,19 +62,20 @@ export default class App extends Component {
     }));
 
   isValidMove = (row1, col1, row2, col2) => {
-    let matchesTurn = this.isCorrectTurn(row1, col1);
+    let correctTurn = this.isCorrectTurn(row1, col1);
     let spaceAvailable = this.isSpaceAvailable(row2, col2);
     let diagonal = this.isDiagonal(row1, col1, row2, col2);
     let directional = this.isDirectional(row1, row2);
+    let withinBounds = this.isWithinBounds(row1, row2, col1, col2);
 
-    if (!matchesTurn) {
+    if (!correctTurn) {
       console.log("Incorrect turn");
       return false;
     }
 
     if (!spaceAvailable) {
       console.log("Space is not available");
-      return false;
+      return falses;
     }
 
     if (!diagonal) {
@@ -79,6 +85,11 @@ export default class App extends Component {
 
     if (!directional) {
       console.log("Move is not directional");
+      return false;
+    }
+
+    if (!withinBounds) {
+      console.log("Move is out of bounds");
       return false;
     }
 
@@ -94,15 +105,34 @@ export default class App extends Component {
   };
 
   isDiagonal = (row1, col1, row2, col2) => {
-    return Math.abs(row2 - row1) === 1 && Math.abs(col2 - col1) === 1;
+    return Math.abs(row2 - row1) === Math.abs(col2 - col1);
   };
 
   isDirectional = (row1, row2) => {
     if (this.state.turn === "red") {
-      return row2 - row1 === -1;
+      return row2 - row1 <= -1;
     } else {
-      return row2 - row1 === 1;
+      return row2 - row1 >= 1;
     }
+  };
+
+  isWithinBounds = (row1, row2, col1, col2) => {
+    return Math.abs(row1 - row2) <= 2 && Math.abs(col1 - col2) <= 2;
+  };
+
+  hasCapturablePiece = (row1, col1, row2, col2) => {
+    if (Math.abs(row1 - row2) != 2 || Math.abs(col1 - col2) != 2) return false;
+
+    rowDifference = (row2 - row1) / 2;
+    colDifference = (col2 - col1) / 2;
+
+    let piece1 = this.state.board[row1][col1];
+    let piece2 = this.state.board[row1 + rowDifference][col1 + colDifference];
+
+    if (piece2 == null) return false;
+    if (piece2 == piece1) return false;
+
+    return true;
   };
 
   render() {
@@ -125,9 +155,9 @@ export default class App extends Component {
                           : 0,
                     },
                   ]}
-                  underlayColor={"yellow"}
+                  underlayColor={"grey"}
                   onPress={() => {
-                    if (piece) {
+                    if (piece && piece == this.state.turn) {
                       this.setState({
                         selectedPiece: { row: rowIndex, col: colIndex },
                       });
@@ -195,7 +225,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    borderColor: "yellow",
+    borderColor: "grey",
   },
   pieceView: {
     flex: 1,
