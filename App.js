@@ -247,7 +247,9 @@ export default class App extends Component {
                       styles.square,
                       {
                         backgroundColor:
-                          (rowIndex + colIndex) % 2 === 0 ? "white" : "black",
+                          (rowIndex + colIndex) % 2 === 0
+                            ? "#eed9c4"
+                            : "#222222",
                         borderWidth:
                           this.state.selectedPiece.row === rowIndex &&
                           this.state.selectedPiece.col === colIndex
@@ -255,7 +257,7 @@ export default class App extends Component {
                             : 0,
                       },
                     ]}
-                    underlayColor={"#d4af37"}
+                    underlayColor={"#faf0e6"}
                     onPress={() => {
                       if (piece && piece.startsWith(this.state.turn)) {
                         this.setState({
@@ -307,6 +309,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: "#eeeeee",
   },
   mainMenuScreen: {
     flex: 1,
@@ -315,14 +318,8 @@ const styles = StyleSheet.create({
   },
   chessScreen: {
     flex: 1,
-    backgroundColor: "#fff",
     alignItems: "center",
     justifyContent: "center",
-  },
-  button: {
-    height: 200,
-    width: 200,
-    backgroundColor: "blue",
   },
   buttonText: {
     color: "black",
@@ -344,11 +341,11 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    borderColor: "#d4af37",
+    borderColor: "#faf0e6",
   },
   piece: {
     fontSize: 24,
-    textShadowColor: "grey",
+    textShadowColor: "black",
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 2,
   },
