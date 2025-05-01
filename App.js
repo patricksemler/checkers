@@ -234,6 +234,11 @@ export default class App extends Component {
     );
   };
 
+  // Gets the color for the turn
+  getTurnColor = () => {
+    return this.state.turn === PIECES.RED ? "red" : "black";
+  };
+
   render() {
     return (
       <View style={styles.container}>
@@ -249,7 +254,8 @@ export default class App extends Component {
                         backgroundColor:
                           (rowIndex + colIndex) % 2 === 0
                             ? "#eed9c4"
-                            : "#222222",
+                            : "#3b3b3b",
+                        borderColor: this.getTurnColor(),
                         borderWidth:
                           this.state.selectedPiece.row === rowIndex &&
                           this.state.selectedPiece.col === colIndex
@@ -257,7 +263,7 @@ export default class App extends Component {
                             : 0,
                       },
                     ]}
-                    underlayColor={"#faf0e6"}
+                    underlayColor={this.getTurnColor()}
                     onPress={() => {
                       if (piece && piece.startsWith(this.state.turn)) {
                         this.setState({
@@ -289,10 +295,7 @@ export default class App extends Component {
           </View>
 
           <Text
-            style={[
-              styles.checkersUpdateText,
-              { color: this.state.turn === "red" ? "red" : "black" },
-            ]}
+            style={[styles.checkersUpdateText, { color: this.getTurnColor() }]}
           >
             {this.getCheckersUpdateText()}
           </Text>
@@ -341,7 +344,6 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    borderColor: "#faf0e6",
   },
   piece: {
     fontSize: 24,
