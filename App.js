@@ -1,26 +1,39 @@
-import React, { Component } from 'react';
-import { AppRegistry, Text, View, StyleSheet, Image, TextInput, ImageBackground, TouchableHighlight, Alert, Dimensions, ScrollView } from 'react-native';
-import Constants from 'expo-constants';
-import { StatusBar } from 'expo-status-bar';
+import React, { Component } from "react";
+import {
+  AppRegistry,
+  Text,
+  View,
+  StyleSheet,
+  Image,
+  TextInput,
+  ImageBackground,
+  TouchableHighlight,
+  Alert,
+  Dimensions,
+  ScrollView,
+} from "react-native";
+import Constants from "expo-constants";
+import { StatusBar } from "expo-status-bar";
 
-let deviceHeight = Dimensions.get('window').height;
-let deviceWidth = Dimensions.get('window').width;
+let deviceHeight = Dimensions.get("window").height;
+let deviceWidth = Dimensions.get("window").width;
 
 export default class App extends Component {
   state = {
     board: [
-      [null, 'black', null, 'black', null, 'black', null, 'black'],
-      ['black', null, 'black', null, 'black', null, 'black', null],
-      [null, 'black', null, 'black', null, 'black', null, 'black'],
+      [null, "black", null, "black", null, "black", null, "black"],
+      ["black", null, "black", null, "black", null, "black", null],
+      [null, "black", null, "black", null, "black", null, "black"],
       [null, null, null, null, null, null, null, null],
       [null, null, null, null, null, null, null, null],
-      ['red', null, 'red', null, 'red', null, 'red', null],
-      [null, 'red', null, 'red', null, 'red', null, 'red'],
-      ['red', null, 'red', null, 'red', null, 'red', null],
+      ["red", null, "red", null, "red", null, "red", null],
+      [null, "red", null, "red", null, "red", null, "red"],
+      ["red", null, "red", null, "red", null, "red", null],
     ],
 
-    turn: 'red',
-  }
+    turn: "red",
+    selectedPiece: { row: null, col: null },
+  };
 
   movePiece = (row1, col1, row2, col2) => {
     if (!this.isValidMove(row1, col1, row2, col2)) return;
@@ -31,16 +44,17 @@ export default class App extends Component {
     newBoard[row1][col1] = null;
     newBoard[row2][col2] = this.state.turn;
 
-    this.setState({ board: newBoard });
+    this.setState({ board: newBoard, selectedPiece: { row: null, col: null } });
 
     this.switchTurn();
 
     console.log(this.state.board);
   };
 
-  switchTurn = () => this.setState(state => ({
-    turn: state.turn === 'red' ? 'black' : 'red',
-  }));
+  switchTurn = () =>
+    this.setState((state) => ({
+      turn: state.turn === "red" ? "black" : "red",
+    }));
 
   isValidMove = (row1, col1, row2, col2) => {
     let matchesTurn = this.isCorrectTurn(row1, col1);
@@ -49,22 +63,22 @@ export default class App extends Component {
     let directional = this.isDirectional(row1, row2);
 
     if (!matchesTurn) {
-      console.log('Incorrect turn');
+      console.log("Incorrect turn");
       return false;
     }
 
     if (!spaceAvailable) {
-      console.log('Space is not available');
+      console.log("Space is not available");
       return false;
     }
 
-    if (!diagonal) {  
-      console.log('Move is not diagonal');
+    if (!diagonal) {
+      console.log("Move is not diagonal");
       return false;
     }
 
     if (!directional) {
-      console.log('Move is not directional');
+      console.log("Move is not directional");
       return false;
     }
 
@@ -76,20 +90,20 @@ export default class App extends Component {
   };
 
   isSpaceAvailable = (row, col) => {
-    return this.state.board[row][col] === null;;
+    return this.state.board[row][col] === null;
   };
 
   isDiagonal = (row1, col1, row2, col2) => {
-    return (Math.abs(row2 - row1) === 1) && (Math.abs(col2 - col1) === 1)
+    return Math.abs(row2 - row1) === 1 && Math.abs(col2 - col1) === 1;
   };
 
   isDirectional = (row1, row2) => {
-    if (this.state.turn === 'red') {
-      return (row2 - row1 === -1);
+    if (this.state.turn === "red") {
+      return row2 - row1 === -1;
     } else {
-      return (row2 - row1 === 1);
+      return row2 - row1 === 1;
     }
-  }
+  };
 
   render() {
     return (
@@ -98,70 +112,95 @@ export default class App extends Component {
           {this.state.board.map((row, rowIndex) => (
             <View style={styles.row}>
               {row.map((piece, colIndex) => (
-                <View 
-                  style={[styles.square, 
-                    {backgroundColor: (rowIndex + colIndex) % 2 == 0 ? 'white' : 'black'}
+                <TouchableHighlight
+                  style={[
+                    styles.square,
+                    {
+                      backgroundColor:
+                        (rowIndex + colIndex) % 2 == 0 ? "white" : "black",
+                      borderWidth:
+                        this.state.selectedPiece.row === rowIndex &&
+                        this.state.selectedPiece.col === colIndex
+                          ? 2
+                          : 0,
+                    },
                   ]}
-                >
-                  {piece && (
-                    <TouchableHighlight
-                      onPress={() => this.movePiece(rowIndex, colIndex, 
-                        this.state.turn === 'red' ? rowIndex - 1 : rowIndex + 1, 
-                        this.state.turn === 'red' ? colIndex - 1 : colIndex + 1)
+                  underlayColor={"yellow"}
+                  onPress={() => {
+                    if (piece) {
+                      this.setState({
+                        selectedPiece: { row: rowIndex, col: colIndex },
+                      });
+                    } else {
+                      if (this.state.selectedPiece.row != null) {
+                        this.movePiece(
+                          this.state.selectedPiece.row,
+                          this.state.selectedPiece.col,
+                          rowIndex,
+                          colIndex
+                        );
                       }
-                    >
+                    }
+                  }}
+                >
+                  <View style={styles.pieceView}>
+                    {piece && (
                       <Text style={styles.piece}>
-                        {piece === 'red' ? '🔴' : '⚫'}
+                        {piece === "red" ? "🔴" : "⚫"}
                       </Text>
-                    </TouchableHighlight>
-                  )}
-
-                </View>
+                    )}
+                  </View>
+                </TouchableHighlight>
               ))}
             </View>
           ))}
         </View>
-    
+
         <StatusBar style="auto" />
       </View>
     );
   }
-
 }
 
 const styles = StyleSheet.create({
   container: {
     height: deviceHeight,
     width: deviceWidth,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "#fff",
+    alignItems: "center",
+    justifyContent: "center",
   },
   button: {
     height: 200,
     width: 200,
-    backgroundColor: 'blue',
+    backgroundColor: "blue",
   },
   buttonText: {
-    color: 'black',
+    color: "black",
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   board: {
-    width: deviceWidth * 8 / 10,
-    height: deviceWidth * 8 / 10,
-    flexDirection: 'column',
-    borderColor: 'black',
+    width: (deviceWidth * 8) / 10,
+    height: (deviceWidth * 8) / 10,
+    flexDirection: "column",
+    borderColor: "black",
     borderWidth: 5,
   },
   row: {
     flex: 1,
-    flexDirection: 'row',
+    flexDirection: "row",
   },
   square: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
+    borderColor: "yellow",
+  },
+  pieceView: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
   },
   piece: {
     fontSize: 24,
