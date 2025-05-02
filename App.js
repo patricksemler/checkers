@@ -28,20 +28,70 @@ const PIECES = {
 export default class App extends Component {
   state = {
     // prettier-ignore
-    board: [
-      [null, PIECES.BLACK, null, PIECES.BLACK, null, PIECES.BLACK, null, PIECES.BLACK],
-      [PIECES.BLACK, null, PIECES.BLACK, null, PIECES.BLACK, null, PIECES.BLACK, null],
-      [null, PIECES.BLACK, null, PIECES.BLACK, null, PIECES.BLACK, null, PIECES.BLACK],
-      [null, null, null, null, null, null, null, null],
-      [null, null, null, null, null, null, null, null],
-      [PIECES.RED, null, PIECES.RED, null, PIECES.RED, null, PIECES.RED, null],
-      [null, PIECES.RED, null, PIECES.RED, null, PIECES.RED, null, PIECES.RED],
-      [PIECES.RED, null, PIECES.RED, null, PIECES.RED, null, PIECES.RED, null],
-    ],
+    board: [],
 
-    turn: PIECES.RED,
+    turn: null,
     winner: null,
     selectedPiece: { row: null, col: null },
+    selectedPieceLock: null,
+
+    homeScreenDisplay: "block",
+    checkersScreenDisplay: "none",
+    customizationScreenDisplay: "none",
+
+    player1Color: "#ff3232",
+    player2Color: "#323232",
+    whiteBoardColor: "#eed9c4",
+    blackBoardColor: "#626262",
+  };
+
+  switchToHomeScreen = () => {
+    this.setState({
+      homeScreenDisplay: "block",
+      checkersScreenDisplay: "none",
+      customizationScreenDisplay: "none",
+    });
+  };
+
+  switchToCheckersScreen = () => {
+    this.setState({
+      homeScreenDisplay: "none",
+      checkersScreenDisplay: "block",
+      customizationScreenDisplay: "none",
+    });
+
+    this.resetGame();
+  };
+
+  switchToCustomizationScreen = () => {
+    this.setState({
+      homeScreenDisplay: "none",
+      checkersScreenDisplay: "none",
+      customizationScreenDisplay: "block",
+    });
+  };
+
+  // Resets game to the default state
+  resetGame = () => {
+    this.setState({
+      // prettier-ignore
+      board: [
+        [null, PIECES.BLACK, null, PIECES.BLACK, null, PIECES.BLACK, null, PIECES.BLACK],
+        [PIECES.BLACK, null, PIECES.BLACK, null, PIECES.BLACK, null, PIECES.BLACK, null],
+        [null, PIECES.BLACK, null, PIECES.BLACK, null, PIECES.BLACK, null, PIECES.BLACK],
+        [null, null, null, null, PIECES.BLACK_KING, null, null, null],
+        [null, null, null, null, null, null, PIECES.RED_KING, null],
+        [PIECES.RED, null, PIECES.RED, null, PIECES.RED, null, PIECES.RED, null],
+        [null, PIECES.RED, null, PIECES.RED, null, PIECES.RED, null, PIECES.RED],
+        [PIECES.RED, null, PIECES.RED, null, PIECES.RED, null, PIECES.RED, null],
+      ],
+      turn: PIECES.RED,
+      winner: null,
+      selectedPiece: { row: null, col: null },
+      selectedPieceLock: false,
+    });
+
+    console.log("Game reset");
   };
 
   // Moves piece from position A to position B
@@ -53,6 +103,15 @@ export default class App extends Component {
     // prettier-ignore
     const capturablePiece = this.hasCapturablePiece(row1, col1, row2, col2, board); // Finds capturable piece if one exists
 
+    if (
+      this.state.selectedPieceLock &&
+      !capturablePiece &&
+      this.hasAnyCapturablePieces(row1, col1, board)
+    ) {
+      console.log("Capturable piece exists, move blocked");
+      return; // Forces the player to capture if a capturable piece exists
+    }
+
     const newBoard = board.map((row) => [...row]); // Creates new board to update the old board with
     const piece = newBoard[row1][col1];
     newBoard[row1][col1] = null;
@@ -61,8 +120,6 @@ export default class App extends Component {
     if (capturablePiece) {
       console.log("Capturing piece");
       newBoard[row1 + (row2 - row1) / 2][col1 + (col2 - col1) / 2] = null; // Sets old piece to null
-    } else {
-      console.log("No capture");
     }
 
     // Checks if the piece should now be a king
@@ -85,6 +142,14 @@ export default class App extends Component {
 
     if (newWinner != null) return; // If there's a winner, the turn doesn't need to switch
 
+    if (capturablePiece && this.hasAnyCapturablePieces(row2, col2, newBoard)) {
+      this.setState({
+        selectedPiece: { row: row2, col: col2 },
+        selectedPieceLock: true,
+      });
+      return; // If there are still capturable pieces remaining, the turn can continue
+    }
+
     this.switchTurn();
   };
 
@@ -92,6 +157,7 @@ export default class App extends Component {
   switchTurn = () => {
     this.setState((state) => ({
       turn: state.turn === PIECES.RED ? PIECES.BLACK : PIECES.RED,
+      selectedPieceLock: false,
     }));
   };
 
@@ -179,6 +245,16 @@ export default class App extends Component {
 
   // Checks if the move has a capturable piece
   hasCapturablePiece = (row1, col1, row2, col2, board) => {
+    if (
+      col2 > board[0].length - 1 ||
+      col2 < 0 ||
+      row2 > board.length - 1 ||
+      row2 < 0
+    )
+      return false; // Can't move off the board
+
+    if (!this.isSpaceAvailable(row2, col2, board)) return false; // Can't move to a filled space
+
     if (Math.abs(row1 - row2) != 2 || Math.abs(col1 - col2) != 2) return false; // Can't capture if not moving 2 spaces
 
     const rowMid = row1 + (row2 - row1) / 2;
@@ -193,6 +269,29 @@ export default class App extends Component {
     return true; // Move contains a capturable piece
   };
 
+  hasAnyCapturablePieces = (row, col, board) => {
+    const redDirections =
+      this.hasCapturablePiece(row, col, row - 2, col - 2, board) || // Up left
+      this.hasCapturablePiece(row, col, row - 2, col + 2, board); // Up right
+
+    const blackDirections =
+      this.hasCapturablePiece(row, col, row + 2, col - 2, board) || // Down left
+      this.hasCapturablePiece(row, col, row + 2, col + 2, board); // Down Right
+
+    const allDirections = redDirections || blackDirections;
+
+    const piece = board[row][col];
+
+    if (piece === PIECES.BLACK_KING || piece === PIECES.RED_KING)
+      return allDirections; // Kings can move in all directions
+
+    if (piece === PIECES.RED) return redDirections; // Red pieces can only move up
+
+    if (piece === PIECES.BLACK) return blackDirections; // Black pieces can only move down
+
+    return false;
+  };
+
   // Checks if the move is a valid distance (1 or 2 spaces, depending on if a capturable piece exists)
   isValidDistance = (row1, col1, row2, col2, board) => {
     return (
@@ -201,106 +300,160 @@ export default class App extends Component {
     );
   };
 
-  // Gets the emoji text for the piece
-  getPieceEmojiText = (piece) => {
-    switch (piece) {
-      case PIECES.RED:
-        return "🔴";
-      case PIECES.RED_KING:
-        return "🟥";
-      case PIECES.BLACK:
-        return "⚫";
-      case PIECES.BLACK_KING:
-        return "⬛️";
-      default:
-        return "";
-    }
-  };
-
   // Gets the text for the checkers game updates (winner or turn)
   getCheckersUpdateText = () => {
-    if (this.state.winner != null) {
-      return (
-        this.state.winner.charAt(0).toUpperCase() +
-        this.state.winner.slice(1) +
-        " Wins!"
-      );
-    }
+    let num = this.state.turn == PIECES.RED ? 1 : 2;
 
-    return (
-      this.state.turn.charAt(0).toUpperCase() +
-      this.state.turn.slice(1) +
-      "\'s Turn"
-    );
+    if (this.state.winner != null) {
+      return "Player " + num + " Wins!";
+    }
+    return "Player " + num + "\'s Turn";
   };
 
   // Gets the color for the turn
   getTurnColor = () => {
-    return this.state.turn === PIECES.RED ? "red" : "black";
+    return this.state.turn === PIECES.RED
+      ? this.state.player1Color
+      : this.state.player2Color;
   };
 
   render() {
     return (
       <View style={styles.container}>
-        <View style={styles.chessScreen}>
-          <View style={styles.board}>
-            {this.state.board.map((row, rowIndex) => (
-              <View style={styles.row}>
-                {row.map((piece, colIndex) => (
-                  <TouchableHighlight
-                    style={[
-                      styles.square,
-                      {
-                        backgroundColor:
-                          (rowIndex + colIndex) % 2 === 0
-                            ? "#eed9c4"
-                            : "#3b3b3b",
-                        borderColor: this.getTurnColor(),
-                        borderWidth:
-                          this.state.selectedPiece.row === rowIndex &&
-                          this.state.selectedPiece.col === colIndex
-                            ? 2
-                            : 0,
-                      },
-                    ]}
-                    underlayColor={this.getTurnColor()}
-                    onPress={() => {
-                      if (piece && piece.startsWith(this.state.turn)) {
-                        this.setState({
-                          selectedPiece: { row: rowIndex, col: colIndex },
-                        });
-                      } else {
-                        if (this.state.selectedPiece.row != null) {
-                          this.movePiece(
-                            this.state.selectedPiece.row,
-                            this.state.selectedPiece.col,
-                            rowIndex,
-                            colIndex
-                          );
-                        }
-                      }
-                    }}
-                  >
-                    <View style={styles.pieceView}>
-                      {piece && (
-                        <Text style={styles.piece}>
-                          {this.getPieceEmojiText(piece)}
-                        </Text>
-                      )}
-                    </View>
-                  </TouchableHighlight>
-                ))}
-              </View>
-            ))}
+        {this.state.homeScreenDisplay === "block" && (
+          <View style={styles.homeScreen}>
+            <Text style={styles.titleText}>Checkers</Text>
+
+            <TouchableHighlight
+              style={styles.button}
+              onPress={this.switchToCheckersScreen}
+            >
+              <Text style={styles.buttonText}>Player vs. Player</Text>
+            </TouchableHighlight>
+
+            <TouchableHighlight
+              style={styles.button}
+              onPress={this.switchToCustomizationScreen}
+            >
+              <Text style={styles.buttonText}>Customization</Text>
+            </TouchableHighlight>
           </View>
+        )}
 
-          <Text
-            style={[styles.checkersUpdateText, { color: this.getTurnColor() }]}
-          >
-            {this.getCheckersUpdateText()}
-          </Text>
-        </View>
+        {this.state.checkersScreenDisplay === "block" && (
+          <View style={styles.checkersScreen}>
+            <View style={styles.label}>
+              <Text style={[styles.labelText, { color: this.getTurnColor() }]}>
+                {this.getCheckersUpdateText()}
+              </Text>
+            </View>
+            <View style={styles.board}>
+              {this.state.board.map((row, rowIndex) => (
+                <View style={styles.row} key={`row-${rowIndex}`}>
+                  {row.map((piece, colIndex) => (
+                    <TouchableHighlight
+                      key={`col-${rowIndex}-${colIndex}`}
+                      style={[
+                        styles.square,
+                        {
+                          backgroundColor:
+                            (rowIndex + colIndex) % 2 === 0
+                              ? this.state.whiteBoardColor
+                              : this.state.blackBoardColor,
+                          borderColor: this.getTurnColor(),
+                          borderWidth:
+                            this.state.selectedPiece.row === rowIndex &&
+                            this.state.selectedPiece.col === colIndex
+                              ? 2
+                              : 0,
+                        },
+                      ]}
+                      underlayColor={this.getTurnColor()}
+                      onPress={() => {
+                        if (
+                          piece &&
+                          !this.state.selectedPieceLock &&
+                          piece.startsWith(this.state.turn)
+                        ) {
+                          this.setState({
+                            selectedPiece: { row: rowIndex, col: colIndex },
+                          });
+                        } else {
+                          if (this.state.selectedPiece.row != null) {
+                            this.movePiece(
+                              this.state.selectedPiece.row,
+                              this.state.selectedPiece.col,
+                              rowIndex,
+                              colIndex
+                            );
+                          }
+                        }
+                      }}
+                    >
+                      <View style={styles.pieceView}>
+                        {piece && (
+                          <View
+                            style={[
+                              piece === PIECES.RED_KING ||
+                              piece === PIECES.BLACK_KING
+                                ? styles.pieceKingCircle
+                                : styles.pieceCircle,
+                              {
+                                backgroundColor: piece.startsWith(PIECES.RED)
+                                  ? this.state.player1Color
+                                  : this.state.player2Color,
+                              },
+                            ]}
+                          ></View>
+                        )}
+                      </View>
+                    </TouchableHighlight>
+                  ))}
+                </View>
+              ))}
+            </View>
+            <TouchableHighlight
+              style={styles.button}
+              onPress={this.switchToHomeScreen}
+            >
+              <Text style={styles.buttonText}>Back</Text>
+            </TouchableHighlight>
+          </View>
+        )}
 
+        {this.state.customizationScreenDisplay === "block" && (
+          <View style={styles.homeScreen}>
+            <Text style={styles.titleText}>Customization</Text>
+            <Text
+              style={[styles.subTitleText, { color: this.state.player1Color }]}
+            >
+              Player 1's Hex Color:
+            </Text>
+            <TextInput
+              value={this.state.player1Color}
+              onChangeText={(newColor) =>
+                this.setState({ player1Color: newColor })
+              }
+            />
+            <Text
+              style={[styles.subTitleText, { color: this.state.player2Color }]}
+            >
+              Player 2's Hex Color:
+            </Text>
+            <TextInput
+              value={this.state.player2Color}
+              onChangeText={(newColor) =>
+                this.setState({ player2Color: newColor })
+              }
+            />
+            <TouchableHighlight
+              style={styles.button}
+              onPress={this.switchToHomeScreen}
+            >
+              <Text style={styles.buttonText}>Back</Text>
+            </TouchableHighlight>
+          </View>
+        )}
         <StatusBar style="auto" />
       </View>
     );
@@ -314,20 +467,56 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "#eeeeee",
   },
-  mainMenuScreen: {
+  homeScreen: {
     flex: 1,
+    gap: 5,
     alignItems: "center",
     justifyContent: "center",
   },
-  chessScreen: {
-    flex: 1,
+  titleText: {
+    fontSize: 40,
+    fontWeight: "bold",
+    color: "black",
+  },
+  subTitleText: {
+    fontSize: 25,
+    fontWeight: "bold",
+    color: "black",
+  },
+  button: {
+    backgroundColor: "grey",
+    width: (deviceWidth * 5) / 10,
+    height: deviceHeight / 12,
     alignItems: "center",
     justifyContent: "center",
+    borderColor: "black",
+    borderWidth: 2,
+    borderRadius: 5,
+  },
+  label: {
+    backgroundColor: "white",
+    width: (deviceWidth * 5) / 12,
+    height: deviceHeight / 16,
+    alignItems: "center",
+    justifyContent: "center",
+    borderColor: "black",
+    borderWidth: 2,
+    borderRadius: 5,
+  },
+  labelText: {
+    fontSize: 18,
+    fontWeight: "bold",
   },
   buttonText: {
-    color: "black",
-    fontSize: 20,
+    fontSize: 25,
     fontWeight: "bold",
+    color: "white",
+  },
+  checkersScreen: {
+    flex: 1,
+    gap: 5,
+    alignItems: "center",
+    justifyContent: "center",
   },
   board: {
     width: (deviceWidth * 8) / 10,
@@ -345,19 +534,29 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  piece: {
-    fontSize: 24,
-    textShadowColor: "black",
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 2,
+  pieceCircle: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    borderColor: "#191919",
+    borderWidth: 1,
+  },
+  pieceKingCircle: {
+    width: 30,
+    height: 30,
+    borderRadius: 6,
+    borderColor: "#191919",
+    borderWidth: 1,
   },
   pieceView: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
   },
-  checkersUpdateText: {
-    fontSize: 30,
-    fontWeight: "bold",
+  customizationScreen: {
+    flex: 1,
+    gap: 5,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });
