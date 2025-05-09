@@ -70,83 +70,6 @@ export default class App extends Component {
     });
   };
 
-  evaluateBoard = (board) => {
-    const flattenedBoard = board.flat;
-
-    let score = 0;
-
-    let player1Pieces = 0;
-    let player1Kings = 0;
-    let player2Pieces = 0;
-    let player2Kings = 0;
-
-    for (const piece of flattenedBoard) {
-      if (piece === PIECES.RED) player1Pieces++;
-      if (piece === PIECES.RED_KING) player1Kings++;
-      if (piece === PIECES.BLACK) player2Pieces++;
-      if (piece === PIECES.BLACK_KING) player2Kings++;
-    }
-
-    score = player1Pieces + player1Kings * 2 - player2Pieces - player2Kings * 2;
-
-    return score;
-  };
-
-  minimax = (board, depth, maximizing) => {
-    if (depth === 0 && this.checkWinner(board) === null)
-      return this.evaluateBoard(board);
-
-    if (maximizing) {
-      let max = -Infinity;
-      const validMoves = this.getAllValidMoves(board, PIECES.RED);
-      for (const move of validMoves) {
-        const newBoard = this.applyMove(
-          move.from.row,
-          move.from.col,
-          move.to.row,
-          move.to.col,
-          board
-        );
-        max = Math.max(max, this.minimax(newBoard, depth - 1, false));
-      }
-
-      return max;
-    } else {
-      let min = Infinity;
-      const validMoves = this.getAllValidMoves(board, PIECES.BLACK);
-      for (const move of validMoves) {
-        const newBoard = this.applyMove(
-          move.from.row,
-          move.from.col,
-          move.to.row,
-          move.to.col,
-          board
-        );
-        min = Math.min(min, this.minimax(newBoard, depth - 1, true));
-      }
-
-      return min;
-    }
-  };
-
-  getBestMove = (board, depth) => {
-    let bestMove = null;
-    let bestScore = -Infinity;
-
-    const validMoves = this.getAllValidMoves(board, PIECES.RED);
-    for (const move of validMoves) {
-      const newBoard = this.applyMove(
-        move.from.row,
-        move.from.col,
-        move.to.row,
-        move.to.col,
-        board
-      );
-    }
-
-    return bestMove;
-  };
-
   // Resets game to the default state
   resetGame = () => {
     this.setState({
@@ -201,7 +124,6 @@ export default class App extends Component {
     if (newBoard == null) return;
 
     const newWinner = this.checkWinner(newBoard); // Checks if a winner exists
-
     this.setState({
       board: newBoard,
       selectedPiece: { row: null, col: null },
@@ -238,6 +160,12 @@ export default class App extends Component {
       )
     )
       return PIECES.RED; // No black pieces, so red won
+
+    const redMoves = this.getAllValidMoves(board, PIECES.RED);
+    if (redMoves.length === 0) return PIECES.BLACK;
+
+    const blackMoves = this.getAllValidMoves(board, PIECES.BLACK);
+    if (blackMoves.length === 0) return PIECES.RED;
 
     return null; // Both colors on board, no winner yet
   };
@@ -307,8 +235,8 @@ export default class App extends Component {
     const validMoves = [];
 
     const validPieces = [];
-    if (piece == PIECES.RED) validPieces.push(PIECES.RED, PIECES.RED_KING);
-    if (piece == PIECES.BLACK)
+    if (piece === PIECES.RED) validPieces.push(PIECES.RED, PIECES.RED_KING);
+    if (piece === PIECES.BLACK)
       validPieces.push(PIECES.BLACK, PIECES.BLACK_KING);
 
     for (let row = 0; row < board.length; row++) {
@@ -371,16 +299,26 @@ export default class App extends Component {
 
   // Gets the text for the checkers game updates (winner or turn)
   getCheckersUpdateText = () => {
-    let num = this.state.turn == PIECES.RED ? 1 : 2;
+    let winner = this.state.winner;
+    let turn = this.state.turn == PIECES.RED ? 1 : 2;
 
-    if (this.state.winner != null) {
-      return "Player " + num + " Wins!";
+    if (winner != null) {
+      let winnerText = winner === PIECES.RED ? 1 : 2;
+
+      return "Player " + winnerText + " Wins!";
     }
-    return "Player " + num + "\'s Turn";
+    return "Player " + turn + "\'s Turn";
   };
 
   // Gets the color for the turn
   getTurnColor = () => {
+    let winner = this.state.winner;
+
+    if (winner != null)
+      return this.state.winner === PIECES.RED
+        ? this.state.player1Color
+        : this.state.player2Color;
+
     return this.state.turn === PIECES.RED
       ? this.state.player1Color
       : this.state.player2Color;
