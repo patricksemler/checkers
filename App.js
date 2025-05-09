@@ -33,7 +33,6 @@ export default class App extends Component {
     turn: null,
     winner: null,
     selectedPiece: { row: null, col: null },
-    selectedPieceLock: null,
 
     homeScreenDisplay: "block",
     checkersScreenDisplay: "none",
@@ -71,6 +70,83 @@ export default class App extends Component {
     });
   };
 
+  evaluateBoard = (board) => {
+    const flattenedBoard = board.flat;
+
+    let score = 0;
+
+    let player1Pieces = 0;
+    let player1Kings = 0;
+    let player2Pieces = 0;
+    let player2Kings = 0;
+
+    for (const piece of flattenedBoard) {
+      if (piece === PIECES.RED) player1Pieces++;
+      if (piece === PIECES.RED_KING) player1Kings++;
+      if (piece === PIECES.BLACK) player2Pieces++;
+      if (piece === PIECES.BLACK_KING) player2Kings++;
+    }
+
+    score = player1Pieces + player1Kings * 2 - player2Pieces - player2Kings * 2;
+
+    return score;
+  };
+
+  minimax = (board, depth, maximizing) => {
+    if (depth === 0 && this.checkWinner(board) === null)
+      return this.evaluateBoard(board);
+
+    if (maximizing) {
+      let max = -Infinity;
+      const validMoves = this.getAllValidMoves(board, PIECES.RED);
+      for (const move of validMoves) {
+        const newBoard = this.applyMove(
+          move.from.row,
+          move.from.col,
+          move.to.row,
+          move.to.col,
+          board
+        );
+        max = Math.max(max, this.minimax(newBoard, depth - 1, false));
+      }
+
+      return max;
+    } else {
+      let min = Infinity;
+      const validMoves = this.getAllValidMoves(board, PIECES.BLACK);
+      for (const move of validMoves) {
+        const newBoard = this.applyMove(
+          move.from.row,
+          move.from.col,
+          move.to.row,
+          move.to.col,
+          board
+        );
+        min = Math.min(min, this.minimax(newBoard, depth - 1, true));
+      }
+
+      return min;
+    }
+  };
+
+  getBestMove = (board, depth) => {
+    let bestMove = null;
+    let bestScore = -Infinity;
+
+    const validMoves = this.getAllValidMoves(board, PIECES.RED);
+    for (const move of validMoves) {
+      const newBoard = this.applyMove(
+        move.from.row,
+        move.from.col,
+        move.to.row,
+        move.to.col,
+        board
+      );
+    }
+
+    return bestMove;
+  };
+
   // Resets game to the default state
   resetGame = () => {
     this.setState({
@@ -88,36 +164,21 @@ export default class App extends Component {
       turn: PIECES.RED,
       winner: null,
       selectedPiece: { row: null, col: null },
-      selectedPieceLock: false,
     });
 
     console.log("Game reset");
   };
 
-  // Moves piece from position A to position B
-  movePiece = (row1, col1, row2, col2) => {
-    if (!this.isValidMove(row1, col1, row2, col2)) return; // Returns if the move is invalid
-
-    const board = this.state.board;
-
-    // prettier-ignore
-    const capturablePiece = this.hasCapturablePiece(row1, col1, row2, col2, board); // Finds capturable piece if one exists
-
-    if (
-      this.state.selectedPieceLock &&
-      !capturablePiece &&
-      this.hasAnyCapturablePieces(row1, col1, board)
-    ) {
-      console.log("Capturable piece exists, move blocked");
-      return; // Forces the player to capture if a capturable piece exists
-    }
+  // Returns a new board with updated positions, captured pieces, and kings based off the move
+  applyMove = (row1, col1, row2, col2, board) => {
+    if (!this.isValidMove(row1, col1, row2, col2, board)) return null; // Returns if the move is invalid
 
     const newBoard = board.map((row) => [...row]); // Creates new board to update the old board with
     const piece = newBoard[row1][col1];
     newBoard[row1][col1] = null;
     newBoard[row2][col2] = piece;
 
-    if (capturablePiece) {
+    if (Math.abs(row2 - row1) == 2) {
       console.log("Capturing piece");
       newBoard[row1 + (row2 - row1) / 2][col1 + (col2 - col1) / 2] = null; // Sets old piece to null
     }
@@ -131,9 +192,16 @@ export default class App extends Component {
       if (newBoard[7][i] === PIECES.BLACK) newBoard[7][i] = PIECES.BLACK_KING; // Black pieces become kings when they reach the bottom
     }
 
+    return newBoard;
+  };
+
+  // Updates the board with a new board, checks winners
+  updateBoard = (row1, col1, row2, col2) => {
+    const newBoard = this.applyMove(row1, col1, row2, col2, this.state.board);
+    if (newBoard == null) return;
+
     const newWinner = this.checkWinner(newBoard); // Checks if a winner exists
 
-    // Updates the state with the new board, selected piece, and winner
     this.setState({
       board: newBoard,
       selectedPiece: { row: null, col: null },
@@ -142,14 +210,6 @@ export default class App extends Component {
 
     if (newWinner != null) return; // If there's a winner, the turn doesn't need to switch
 
-    if (capturablePiece && this.hasAnyCapturablePieces(row2, col2, newBoard)) {
-      this.setState({
-        selectedPiece: { row: row2, col: col2 },
-        selectedPieceLock: true,
-      });
-      return; // If there are still capturable pieces remaining, the turn can continue
-    }
-
     this.switchTurn();
   };
 
@@ -157,7 +217,6 @@ export default class App extends Component {
   switchTurn = () => {
     this.setState((state) => ({
       turn: state.turn === PIECES.RED ? PIECES.BLACK : PIECES.RED,
-      selectedPieceLock: false,
     }));
   };
 
@@ -184,45 +243,32 @@ export default class App extends Component {
   };
 
   // Checks if the move is valid
-  isValidMove = (row1, col1, row2, col2) => {
+  isValidMove = (row1, col1, row2, col2, board) => {
     if (this.state.winner != null) {
       // If there's a winner, no moves are valid
       console.log("Game is over");
       return false;
     }
 
-    const board = this.state.board;
+    if (!this.isSpaceAvailable(row2, col2, board)) return false;
+    if (!this.isDiagonal(row1, col1, row2, col2)) return false;
+    if (!this.isDirectional(row1, col1, row2, board)) return false;
+    if (!this.isValidDistance(row1, col1, row2, col2, board)) return false;
 
-    // prettier-ignore
-    const checks = [
-      {condition: this.isCorrectTurn(row1, col1, board), message: "Incorrect turn"},
-      {condition: this.isSpaceAvailable(row2, col2, board), message: "Space is not available"},
-      {condition: this.isDiagonal(row1, col1, row2, col2), message:  "Move is not diagonal"},
-      {condition: this.isDirectional(row1, col1, row2, board), message: "Move is not directional"},
-      {condition: this.isValidDistance(row1, col1, row2, col2, board), message: "Move is not valid distance"},
-    ];
-
-    // Loops through each condition and returns false if any are false, logging to console as well
-    for (const check of checks) {
-      if (!check.condition) {
-        console.log(check.message);
-        return false;
-      }
-    }
-
-    return true; // All conditions passed
-  };
-
-  // Checks if the piece is the correct turn
-  isCorrectTurn = (row, col, board) => {
-    return (
-      this.state.winner == null && board[row][col].startsWith(this.state.turn)
-    );
+    return true;
   };
 
   // Checks if the space is available
   isSpaceAvailable = (row, col, board) => {
-    return board[row][col] === null;
+    if (
+      row < 0 ||
+      row > board.length - 1 ||
+      col < 0 ||
+      col > board[0].length - 1
+    )
+      return false;
+
+    return board[row][col] == null;
   };
 
   // Checks if the move is diagonal
@@ -245,18 +291,6 @@ export default class App extends Component {
 
   // Checks if the move has a capturable piece
   hasCapturablePiece = (row1, col1, row2, col2, board) => {
-    if (
-      col2 > board[0].length - 1 ||
-      col2 < 0 ||
-      row2 > board.length - 1 ||
-      row2 < 0
-    )
-      return false; // Can't move off the board
-
-    if (!this.isSpaceAvailable(row2, col2, board)) return false; // Can't move to a filled space
-
-    if (Math.abs(row1 - row2) != 2 || Math.abs(col1 - col2) != 2) return false; // Can't capture if not moving 2 spaces
-
     const rowMid = row1 + (row2 - row1) / 2;
     const colMid = col1 + (col2 - col1) / 2;
 
@@ -269,34 +303,69 @@ export default class App extends Component {
     return true; // Move contains a capturable piece
   };
 
-  hasAnyCapturablePieces = (row, col, board) => {
-    const redDirections =
-      this.hasCapturablePiece(row, col, row - 2, col - 2, board) || // Up left
-      this.hasCapturablePiece(row, col, row - 2, col + 2, board); // Up right
+  getAllValidMoves = (board, piece) => {
+    const validMoves = [];
 
-    const blackDirections =
-      this.hasCapturablePiece(row, col, row + 2, col - 2, board) || // Down left
-      this.hasCapturablePiece(row, col, row + 2, col + 2, board); // Down Right
+    const validPieces = [];
+    if (piece == PIECES.RED) validPieces.push(PIECES.RED, PIECES.RED_KING);
+    if (piece == PIECES.BLACK)
+      validPieces.push(PIECES.BLACK, PIECES.BLACK_KING);
 
-    const allDirections = redDirections || blackDirections;
+    for (let row = 0; row < board.length; row++) {
+      for (let col = 0; col < board[row].length; col++) {
+        if (validPieces.includes(board[row][col])) {
+          const moves = this.generateValidMoves(row, col, board);
+          validMoves.push(...moves);
+        }
+      }
+    }
 
-    const piece = board[row][col];
+    return validMoves;
+  };
 
-    if (piece === PIECES.BLACK_KING || piece === PIECES.RED_KING)
-      return allDirections; // Kings can move in all directions
+  generateValidMoves = (row, col, board) => {
+    const validMoves = [];
 
-    if (piece === PIECES.RED) return redDirections; // Red pieces can only move up
+    // prettier-ignore
+    const directions = [
+      { from: {row: row, col: col}, to: {row: row - 1, col: col - 1}, hasCapture: false }, // Up left
+      { from: {row: row, col: col}, to: {row: row - 2, col: col - 2}, hasCapture: true }, // Up left (capture)
+      { from: {row: row, col: col}, to: {row: row - 1, col: col + 1}, hasCapture: false }, // Up right
+      { from: {row: row, col: col}, to: {row: row - 2, col: col + 2}, hasCapture: true }, // Up right (capture)
 
-    if (piece === PIECES.BLACK) return blackDirections; // Black pieces can only move down
+      { from: {row: row, col: col}, to: {row: row + 1, col: col - 1}, hasCapture: false }, // Bottom left
+      { from: {row: row, col: col}, to: {row: row + 2, col: col - 2}, hasCapture: true }, // Bottom left (capture)
+      { from: {row: row, col: col}, to: {row: row + 1, col: col + 1}, hasCapture: false }, // Bottom right
+      { from: {row: row, col: col}, to: {row: row + 2, col: col + 2}, hasCapture: true }, // Bottom right (capture)
+    ];
 
-    return false;
+    for (const direction of directions)
+      if (
+        this.isValidMove(
+          direction.from.row,
+          direction.from.col,
+          direction.to.row,
+          direction.to.col,
+          board
+        )
+      )
+        validMoves.push({ direction });
+
+    return validMoves;
+  };
+
+  generateCapturableMoves = (row, col, board) => {
+    const validMoves = this.generateValidMoves(row, col, board);
+    const capturableMoves = validMoves.filter((move) => move.hasCapture);
+
+    return capturableMoves;
   };
 
   // Checks if the move is a valid distance (1 or 2 spaces, depending on if a capturable piece exists)
   isValidDistance = (row1, col1, row2, col2, board) => {
     return (
-      this.hasCapturablePiece(row1, col1, row2, col2, board) ||
-      Math.abs(row1 - row2) === 1
+      Math.abs(row1 - row2) === 1 ||
+      this.hasCapturablePiece(row1, col1, row2, col2, board)
     );
   };
 
@@ -372,15 +441,18 @@ export default class App extends Component {
                       onPress={() => {
                         if (
                           piece &&
-                          !this.state.selectedPieceLock &&
+                          this.state.winner == null &&
                           piece.startsWith(this.state.turn)
                         ) {
                           this.setState({
                             selectedPiece: { row: rowIndex, col: colIndex },
                           });
                         } else {
-                          if (this.state.selectedPiece.row != null) {
-                            this.movePiece(
+                          if (
+                            this.state.winner == null &&
+                            this.state.selectedPiece.row != null
+                          ) {
+                            this.updateBoard(
                               this.state.selectedPiece.row,
                               this.state.selectedPiece.col,
                               rowIndex,
