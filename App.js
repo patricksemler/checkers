@@ -34,6 +34,8 @@ export default class App extends Component {
     winner: null,
     selectedPiece: { row: null, col: null },
 
+    aiMode: false,
+
     homeScreenDisplay: "block",
     checkersScreenDisplay: "none",
     customizationScreenDisplay: "none",
@@ -52,11 +54,12 @@ export default class App extends Component {
     });
   };
 
-  switchToCheckersScreen = () => {
+  switchToCheckersScreen = (aiMode = false) => {
     this.setState({
       homeScreenDisplay: "none",
       checkersScreenDisplay: "block",
       customizationScreenDisplay: "none",
+      aiMode: aiMode,
     });
 
     this.resetGame();
@@ -118,28 +121,113 @@ export default class App extends Component {
     return newBoard;
   };
 
+  applyAIMove = (board) => {
+    const validMoves = this.getAllValidMoves(board, PIECES.BLACK);
+
+    if (validMoves.length === 0) {
+      console.log("AI has no valid moves");
+      return;
+    }
+
+    const rand = Math.random();
+
+    const captureMoves = validMoves.filter((move) => move.hasCapture);
+
+    if (captureMoves.length > 0) {
+      console.log("AI capturing piece");
+
+      const move = captureMoves[Math.floor(rand * captureMoves.length)];
+
+      this.updateBoard(move.from.row, move.from.col, move.to.row, move.to.col);
+      return;
+    }
+
+    const kingMoves = validMoves.filter((move) => {
+      const piece = board[move.from.row][move.from.col];
+
+      return piece === PIECES.BLACK && move.to.row === 7;
+    });
+
+    if (kingMoves.length > 0) {
+      console.log("AI making king");
+
+      const move = kingMoves[Math.floor(rand * kingMoves.length)];
+
+      this.updateBoard(move.from.row, move.from.col, move.to.row, move.to.col);
+      return;
+    }
+
+    const vulnerableMoves = validMoves.filter((move) => {
+      return this.isPieceVulnerable(move.from.row, move.from.col, board);
+    });
+
+    if (vulnerableMoves.length > 0) {
+      console.log("AI moving vulnerable piece");
+
+      const move = vulnerableMoves[Math.floor(rand * vulnerableMoves.length)];
+
+      this.updateBoard(move.from.row, move.from.col, move.to.row, move.to.col);
+      return;
+    }
+
+    console.log("AI making normal move");
+
+    const move = validMoves[Math.floor(rand * validMoves.length)];
+
+    this.updateBoard(move.from.row, move.from.col, move.to.row, move.to.col);
+  };
+
+  isPieceVulnerable = (row, col, board) => {
+    const opponent = board[row][col].startsWith(PIECES.RED)
+      ? PIECES.BLACK
+      : PIECES.RED;
+
+    const opponentMoves = this.getAllValidMoves(board, opponent);
+    const opponentCaptureMoves = opponentMoves.filter(
+      (move) => move.hasCapture
+    );
+
+    if (opponentCaptureMoves.length === 0) return false;
+
+    for (const move of opponentCaptureMoves) {
+      if (
+        move.from.row === row - (move.to.row - move.from.row) / 2 &&
+        move.from.col === col - (move.to.col - move.from.col) / 2 &&
+        move.to.row === row + (move.to.row - move.from.row) / 2 &&
+        move.to.col === col + (move.to.col - move.from.col) / 2
+      ) {
+        return true;
+      }
+    }
+
+    return false;
+  };
+
   // Updates the board with a new board, checks winners
   updateBoard = (row1, col1, row2, col2) => {
     const newBoard = this.applyMove(row1, col1, row2, col2, this.state.board);
     if (newBoard == null) return;
 
     const newWinner = this.checkWinner(newBoard); // Checks if a winner exists
-    this.setState({
-      board: newBoard,
-      selectedPiece: { row: null, col: null },
-      winner: newWinner,
-    });
+    this.setState(
+      {
+        board: newBoard,
+        selectedPiece: { row: null, col: null },
+        winner: newWinner,
+        turn: this.state.turn === PIECES.RED ? PIECES.BLACK : PIECES.RED,
+      },
+      () => {
+        const ai = this.state.aiMode; // Check if AI mode is enabled
 
-    if (newWinner != null) return; // If there's a winner, the turn doesn't need to switch
+        if (!ai) return;
 
-    this.switchTurn();
-  };
-
-  // Switches the turn (from red to black or black to red)
-  switchTurn = () => {
-    this.setState((state) => ({
-      turn: state.turn === PIECES.RED ? PIECES.BLACK : PIECES.RED,
-    }));
+        if (this.state.turn === PIECES.BLACK) {
+          setTimeout(() => {
+            this.applyAIMove(newBoard); // AI makes a move if AI mode is selected
+          }, 500);
+        }
+      }
+    );
   };
 
   // Checks every piece on the board to see if there is a winner
@@ -256,7 +344,7 @@ export default class App extends Component {
 
     // prettier-ignore
     const directions = [
-      { from: {row: row, col: col}, to: {row: row - 1, col: col - 1}, hasCapture: false }, // Up left
+      { from: {row, col: col}, to: {row: row - 1, col: col - 1}, hasCapture: false }, // Up left
       { from: {row: row, col: col}, to: {row: row - 2, col: col - 2}, hasCapture: true }, // Up left (capture)
       { from: {row: row, col: col}, to: {row: row - 1, col: col + 1}, hasCapture: false }, // Up right
       { from: {row: row, col: col}, to: {row: row - 2, col: col + 2}, hasCapture: true }, // Up right (capture)
@@ -277,16 +365,13 @@ export default class App extends Component {
           board
         )
       )
-        validMoves.push({ direction });
+        validMoves.push({
+          from: { row: direction.from.row, col: direction.from.col },
+          to: { row: direction.to.row, col: direction.to.col },
+          hasCapture: direction.hasCapture,
+        });
 
     return validMoves;
-  };
-
-  generateCapturableMoves = (row, col, board) => {
-    const validMoves = this.generateValidMoves(row, col, board);
-    const capturableMoves = validMoves.filter((move) => move.hasCapture);
-
-    return capturableMoves;
   };
 
   // Checks if the move is a valid distance (1 or 2 spaces, depending on if a capturable piece exists)
@@ -333,9 +418,16 @@ export default class App extends Component {
 
             <TouchableHighlight
               style={styles.button}
-              onPress={this.switchToCheckersScreen}
+              onPress={() => this.switchToCheckersScreen(false)}
             >
               <Text style={styles.buttonText}>Player vs. Player</Text>
+            </TouchableHighlight>
+
+            <TouchableHighlight
+              style={styles.button}
+              onPress={() => this.switchToCheckersScreen(true)}
+            >
+              <Text style={styles.buttonText}>Player vs. AI</Text>
             </TouchableHighlight>
 
             <TouchableHighlight
@@ -514,7 +606,7 @@ const styles = StyleSheet.create({
     borderRadius: 5,
   },
   labelText: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: "bold",
   },
   buttonText: {
