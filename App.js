@@ -27,18 +27,21 @@ const PIECES = {
 
 export default class App extends Component {
   state = {
-    // prettier-ignore
     board: [],
 
     turn: null,
     winner: null,
     selectedPiece: { row: null, col: null },
+    selectedPieceLock: null,
 
     aiMode: false,
 
     homeScreenDisplay: "block",
     checkersScreenDisplay: "none",
+    checkersTutorialScreenDisplay: "none",
     customizationScreenDisplay: "none",
+
+    viewedTutorial: false,
 
     player1Color: "#ff3232",
     player2Color: "#323232",
@@ -50,14 +53,21 @@ export default class App extends Component {
     this.setState({
       homeScreenDisplay: "block",
       checkersScreenDisplay: "none",
+      checkersTutorialScreenDisplay: "none",
       customizationScreenDisplay: "none",
     });
   };
 
   switchToCheckersScreen = (aiMode = false) => {
+    if (!this.state.viewedTutorial) {
+      this.switchToCheckersTutorialScreen(aiMode);
+      return;
+    }
+
     this.setState({
       homeScreenDisplay: "none",
       checkersScreenDisplay: "block",
+      checkersTutorialScreenDisplay: "none",
       customizationScreenDisplay: "none",
       aiMode: aiMode,
     });
@@ -65,10 +75,22 @@ export default class App extends Component {
     this.resetGame();
   };
 
+  switchToCheckersTutorialScreen = (aiMode) => {
+    this.setState({
+      homeScreenDisplay: "none",
+      checkersScreenDisplay: "none",
+      checkersTutorialScreenDisplay: "block",
+      customizationScreenDisplay: "none",
+      viewedTutorial: true,
+      aiMode: aiMode,
+    });
+  };
+
   switchToCustomizationScreen = () => {
     this.setState({
       homeScreenDisplay: "none",
       checkersScreenDisplay: "none",
+      checkersTutorialScreenDisplay: "none",
       customizationScreenDisplay: "block",
     });
   };
@@ -76,7 +98,6 @@ export default class App extends Component {
   // Resets game to the default state
   resetGame = () => {
     this.setState({
-      // prettier-ignore
       board: [
         [null, PIECES.BLACK, null, PIECES.BLACK, null, PIECES.BLACK, null, PIECES.BLACK],
         [PIECES.BLACK, null, PIECES.BLACK, null, PIECES.BLACK, null, PIECES.BLACK, null],
@@ -90,6 +111,7 @@ export default class App extends Component {
       turn: PIECES.RED,
       winner: null,
       selectedPiece: { row: null, col: null },
+      selectedPieceLock: false,
     });
 
     console.log("Game reset");
@@ -98,6 +120,9 @@ export default class App extends Component {
   // Returns a new board with updated positions, captured pieces, and kings based off the move
   applyMove = (row1, col1, row2, col2, board) => {
     if (!this.isValidMove(row1, col1, row2, col2, board)) return null; // Returns if the move is invalid
+
+    if (!this.isCaptureWhenAvailable(row1, col1, row2, col2, board))
+      return null;
 
     const newBoard = board.map((row) => [...row]); // Creates new board to update the old board with
     const piece = newBoard[row1][col1];
@@ -112,9 +137,6 @@ export default class App extends Component {
     // Checks if the piece should now be a king
     for (let i = 0; i < newBoard[0].length; i++) {
       if (newBoard[0][i] === PIECES.RED) newBoard[0][i] = PIECES.RED_KING; // Red pieces become kings when they reach the top
-    }
-
-    for (let i = 0; i < newBoard[7].length; i++) {
       if (newBoard[7][i] === PIECES.BLACK) newBoard[7][i] = PIECES.BLACK_KING; // Black pieces become kings when they reach the bottom
     }
 
@@ -122,6 +144,8 @@ export default class App extends Component {
   };
 
   applyAIMove = (board) => {
+    if (this.state.winner != null) return;
+
     const validMoves = this.getAllValidMoves(board, PIECES.BLACK);
 
     if (validMoves.length === 0) {
@@ -129,52 +153,51 @@ export default class App extends Component {
       return;
     }
 
+    const bestMove = this.getBestMove(validMoves, board);
+
+    this.updateBoard(
+      bestMove.from.row,
+      bestMove.from.col,
+      bestMove.to.row,
+      bestMove.to.col
+    );
+  };
+
+  getRandomMove = (moves) => {
     const rand = Math.random();
 
-    const captureMoves = validMoves.filter((move) => move.hasCapture);
+    return moves[Math.floor(rand * moves.length)];
+  };
+
+  getBestMove = (moves, board) => {
+    const captureMoves = moves.filter((move) => move.hasCapture);
 
     if (captureMoves.length > 0) {
       console.log("AI capturing piece");
-
-      const move = captureMoves[Math.floor(rand * captureMoves.length)];
-
-      this.updateBoard(move.from.row, move.from.col, move.to.row, move.to.col);
-      return;
+      return this.getRandomMove(captureMoves);
     }
 
-    const kingMoves = validMoves.filter((move) => {
+    const kingMoves = moves.filter((move) => {
       const piece = board[move.from.row][move.from.col];
-
       return piece === PIECES.BLACK && move.to.row === 7;
     });
 
     if (kingMoves.length > 0) {
       console.log("AI making king");
-
-      const move = kingMoves[Math.floor(rand * kingMoves.length)];
-
-      this.updateBoard(move.from.row, move.from.col, move.to.row, move.to.col);
-      return;
+      return this.getRandomMove(kingMoves);
     }
 
-    const vulnerableMoves = validMoves.filter((move) => {
+    const vulnerableMoves = moves.filter((move) => {
       return this.isPieceVulnerable(move.from.row, move.from.col, board);
     });
 
     if (vulnerableMoves.length > 0) {
       console.log("AI moving vulnerable piece");
-
-      const move = vulnerableMoves[Math.floor(rand * vulnerableMoves.length)];
-
-      this.updateBoard(move.from.row, move.from.col, move.to.row, move.to.col);
-      return;
+      return this.getRandomMove(vulnerableMoves);
     }
 
     console.log("AI making normal move");
-
-    const move = validMoves[Math.floor(rand * validMoves.length)];
-
-    this.updateBoard(move.from.row, move.from.col, move.to.row, move.to.col);
+    return this.getRandomMove(moves);
   };
 
   isPieceVulnerable = (row, col, board) => {
@@ -208,13 +231,27 @@ export default class App extends Component {
     const newBoard = this.applyMove(row1, col1, row2, col2, this.state.board);
     if (newBoard == null) return;
 
+    const validMoves = this.generateValidMoves(row2, col2, newBoard);
+    const captureMoves = validMoves.filter((move) => move.hasCapture);
+
+    const selectedPieceLock =
+      captureMoves.length > 0 &&
+      this.hasCapturablePiece(row1, col1, row2, col2, this.state.board);
+
     const newWinner = this.checkWinner(newBoard); // Checks if a winner exists
     this.setState(
       {
         board: newBoard,
-        selectedPiece: { row: null, col: null },
+        selectedPieceLock: selectedPieceLock,
+        selectedPiece: selectedPieceLock
+          ? { row: row2, col: col2 }
+          : { row: null, col: null },
         winner: newWinner,
-        turn: this.state.turn === PIECES.RED ? PIECES.BLACK : PIECES.RED,
+        turn: selectedPieceLock
+          ? this.state.turn
+          : this.state.turn === PIECES.RED
+            ? PIECES.BLACK
+            : PIECES.RED,
       },
       () => {
         const ai = this.state.aiMode; // Check if AI mode is enabled
@@ -305,15 +342,34 @@ export default class App extends Component {
     return Math.abs(row2 - row1) >= 1; // Kings can move up or down
   };
 
+  isCaptureWhenAvailable = (row1, col1, row2, col2, board) => {
+    if (this.hasCapturablePiece(row1, col1, row2, col2, board)) return true;
+
+    const validMoves = this.getAllValidMoves(board, this.state.turn);
+    const captureMoves = validMoves.filter((move) => move.hasCapture);
+
+    return captureMoves == 0;
+  };
+
   // Checks if the move has a capturable piece
   hasCapturablePiece = (row1, col1, row2, col2, board) => {
+    if (
+      row2 < 0 ||
+      row2 > board.length - 1 ||
+      col2 < 0 ||
+      col2 > board[0].length - 1
+    )
+      return false;
+    if (Math.abs(row1 - row2) !== 2 || Math.abs(col1 - col2) !== 2)
+      return false;
+
     const rowMid = row1 + (row2 - row1) / 2;
     const colMid = col1 + (col2 - col1) / 2;
 
     const piece1 = board[row1][col1];
     const piece2 = board[rowMid][colMid];
 
-    if (piece2 == null) return false; // No piece to capture
+    if (piece2 == null || piece1 == null) return false; // No piece to capture
     if (piece2.startsWith(piece1) || piece1.startsWith(piece2)) return false; // Can't capture own piece
 
     return true; // Move contains a capturable piece
@@ -342,9 +398,8 @@ export default class App extends Component {
   generateValidMoves = (row, col, board) => {
     const validMoves = [];
 
-    // prettier-ignore
     const directions = [
-      { from: {row, col: col}, to: {row: row - 1, col: col - 1}, hasCapture: false }, // Up left
+      { from: {row: row, col: col}, to: {row: row - 1, col: col - 1}, hasCapture: false }, // Up left
       { from: {row: row, col: col}, to: {row: row - 2, col: col - 2}, hasCapture: true }, // Up left (capture)
       { from: {row: row, col: col}, to: {row: row - 1, col: col + 1}, hasCapture: false }, // Up right
       { from: {row: row, col: col}, to: {row: row - 2, col: col + 2}, hasCapture: true }, // Up right (capture)
@@ -415,6 +470,7 @@ export default class App extends Component {
         {this.state.homeScreenDisplay === "block" && (
           <View style={styles.homeScreen}>
             <Text style={styles.titleText}>Checkers</Text>
+            <Text style={styles.subTitleText}>by Patrick & Sid</Text>
 
             <TouchableHighlight
               style={styles.button}
@@ -472,16 +528,18 @@ export default class App extends Component {
                         if (
                           piece &&
                           this.state.winner == null &&
-                          piece.startsWith(this.state.turn)
+                          !this.state.selectedPieceLock &&
+                          piece.startsWith(this.state.turn) &&
+                          !(
+                            this.state.aiMode &&
+                            this.state.turn === PIECES.BLACK
+                          )
                         ) {
                           this.setState({
                             selectedPiece: { row: rowIndex, col: colIndex },
                           });
                         } else {
-                          if (
-                            this.state.winner == null &&
-                            this.state.selectedPiece.row != null
-                          ) {
+                          if (this.state.selectedPiece.row != null) {
                             this.updateBoard(
                               this.state.selectedPiece.row,
                               this.state.selectedPiece.col,
@@ -519,6 +577,30 @@ export default class App extends Component {
               onPress={this.switchToHomeScreen}
             >
               <Text style={styles.buttonText}>Back</Text>
+            </TouchableHighlight>
+          </View>
+        )}
+
+        {this.state.checkersTutorialScreenDisplay === "block" && (
+          <View style={styles.homeScreen}>
+            <Text style={styles.titleText}>Tutorial</Text>
+            
+            <View style={styles.tutorialBox}>
+              <Text style={styles.tutorialText}>
+              To move your piece, tap the piece you want to move, then tap the space you'd like to move it to.
+
+              {"\n"}
+              {"\n"}If you can capture a piece, you must do so. 
+              {"\n"}To capture a piece, move your piece to the space diagonally across from the piece you want to capture. The captured piece will be removed from the board.
+              {"\n"}To make a king, move your piece to the last row of the board. The circular piece will transform into a square and will be able to move in any direction.
+              </Text>
+            </View>
+
+            <TouchableHighlight
+              style={styles.button}
+              onPress={() => this.switchToCheckersScreen(this.state.aiMode)}
+            >
+              <Text style={styles.buttonText}>Play</Text>
             </TouchableHighlight>
           </View>
         )}
@@ -571,7 +653,7 @@ const styles = StyleSheet.create({
   },
   homeScreen: {
     flex: 1,
-    gap: 5,
+    gap: 8,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -584,6 +666,12 @@ const styles = StyleSheet.create({
     fontSize: 25,
     fontWeight: "bold",
     color: "black",
+  },
+  tutorialText: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "black",
+    textAlign: "center",
   },
   button: {
     backgroundColor: "grey",
@@ -626,6 +714,17 @@ const styles = StyleSheet.create({
     flexDirection: "column",
     borderColor: "black",
     borderWidth: 5,
+  },
+  tutorialBox: {
+    backgroundColor: "white",
+    width: (deviceWidth * 10) / 12,
+    height: (deviceHeight * 8) / 16,
+    alignItems: "center",
+    justifyContent: "center",
+    borderColor: "black",
+    borderWidth: 2,
+    borderRadius: 5,
+    padding: 8,
   },
   row: {
     flex: 1,
