@@ -27,21 +27,21 @@ const PIECES = {
 
 export default class App extends Component {
   state = {
-    board: [],
+    board: [], // Keeps track of the game's board
 
-    turn: null,
-    winner: null,
-    selectedPiece: { row: null, col: null },
-    selectedPieceLock: null,
+    turn: null, // Keeps track of the current turn
+    winner: null, // Keeps track of the winner (and if one exists)
+    selectedPiece: { row: null, col: null }, // Keeps track of whatever piece the user selects to move
+    selectedPieceLock: null, // Keeps track of if the user should be locked from selecting other pieces (i.e. capture moves exist)
 
-    aiMode: false,
+    aiMode: false, // Keeps track of if the user is playing against the AI
 
     homeScreenDisplay: "block",
     checkersScreenDisplay: "none",
     checkersTutorialScreenDisplay: "none",
     customizationScreenDisplay: "none",
 
-    viewedTutorial: false,
+    viewedTutorial: false, // Keeps track of if the user has viewed the tutorial screen
 
     player1Color: "#ff3232",
     player2Color: "#323232",
@@ -49,6 +49,7 @@ export default class App extends Component {
     blackBoardColor: "#626262",
   };
 
+  // The following functions handle switching between screens
   switchToHomeScreen = () => {
     this.setState({
       homeScreenDisplay: "block",
@@ -60,7 +61,7 @@ export default class App extends Component {
 
   switchToCheckersScreen = (aiMode = false) => {
     if (!this.state.viewedTutorial) {
-      this.switchToCheckersTutorialScreen(aiMode);
+      this.switchToCheckersTutorialScreen(aiMode); // If they haven't viewed the tutorial, switch to the tutorial screen, and keep note of whether they're playing against AI or not
       return;
     }
 
@@ -69,7 +70,7 @@ export default class App extends Component {
       checkersScreenDisplay: "block",
       checkersTutorialScreenDisplay: "none",
       customizationScreenDisplay: "none",
-      aiMode: aiMode,
+      aiMode: aiMode, // aiMode variable keeps track of whether they're playing against AI or not
     });
 
     this.resetGame();
@@ -81,7 +82,7 @@ export default class App extends Component {
       checkersScreenDisplay: "none",
       checkersTutorialScreenDisplay: "block",
       customizationScreenDisplay: "none",
-      viewedTutorial: true,
+      viewedTutorial: true, // Sets the tutorialViewed variable to true, as reaching this screen means the user has viewed it
       aiMode: aiMode,
     });
   };
@@ -114,15 +115,17 @@ export default class App extends Component {
       selectedPieceLock: false,
     });
 
-    console.log("Game reset");
+    console.log("Game update: Game reset");
   };
 
   // Returns a new board with updated positions, captured pieces, and kings based off the move
   applyMove = (row1, col1, row2, col2, board) => {
     if (!this.isValidMove(row1, col1, row2, col2, board)) return null; // Returns if the move is invalid
 
-    if (!this.isCaptureWhenAvailable(row1, col1, row2, col2, board))
+    if (!this.isCaptureWhenAvailable(row1, col1, row2, col2, board)) {
+      console.log("Valid checker: A capturable move is available instead")
       return null;
+    }
 
     const newBoard = board.map((row) => [...row]); // Creates new board to update the old board with
     const piece = newBoard[row1][col1];
@@ -130,26 +133,33 @@ export default class App extends Component {
     newBoard[row2][col2] = piece;
 
     if (Math.abs(row2 - row1) == 2) {
-      console.log("Capturing piece");
+      console.log("Game update: Capturing piece");
       newBoard[row1 + (row2 - row1) / 2][col1 + (col2 - col1) / 2] = null; // Sets old piece to null
     }
 
     // Checks if the piece should now be a king
     for (let i = 0; i < newBoard[0].length; i++) {
-      if (newBoard[0][i] === PIECES.RED) newBoard[0][i] = PIECES.RED_KING; // Red pieces become kings when they reach the top
-      if (newBoard[7][i] === PIECES.BLACK) newBoard[7][i] = PIECES.BLACK_KING; // Black pieces become kings when they reach the bottom
+      if (newBoard[0][i] === PIECES.RED) { 
+        console.log("Game update: Making Player 1\'s piece a king");
+        newBoard[0][i] = PIECES.RED_KING; // Red pieces become kings when they reach the top 
+      }
+      if (newBoard[7][i] === PIECES.BLACK) {
+        console.log("Game update: Making Player 2\'s piece a king");
+        newBoard[7][i] = PIECES.BLACK_KING; // Black pieces become kings when they reach the bottom
+      }
     }
 
     return newBoard;
   };
 
+  // Applies AI move to the board
   applyAIMove = (board) => {
-    if (this.state.winner != null) return;
+    if (this.state.winner != null) return; // If a winner exists, no moves should be applied
 
     const validMoves = this.getAllValidMoves(board, PIECES.BLACK);
 
     if (validMoves.length === 0) {
-      console.log("AI has no valid moves");
+      console.log("AI: AI has no valid moves");
       return;
     }
 
@@ -163,17 +173,19 @@ export default class App extends Component {
     );
   };
 
+  // Helper function to get a random move from a list of moves
   getRandomMove = (moves) => {
     const rand = Math.random();
 
     return moves[Math.floor(rand * moves.length)];
   };
 
+  // Returns the best move for the AI to make based on some rules
   getBestMove = (moves, board) => {
     const captureMoves = moves.filter((move) => move.hasCapture);
 
-    if (captureMoves.length > 0) {
-      console.log("AI capturing piece");
+    if (captureMoves.length > 0) { // Prioritize moves that capture pieces
+      console.log("AI: AI capturing piece");
       return this.getRandomMove(captureMoves);
     }
 
@@ -182,8 +194,8 @@ export default class App extends Component {
       return piece === PIECES.BLACK && move.to.row === 7;
     });
 
-    if (kingMoves.length > 0) {
-      console.log("AI making king");
+    if (kingMoves.length > 0) { // Prioritize moves that capture king pieces (if capture moves don't exist)
+      console.log("AI: AI making king");
       return this.getRandomMove(kingMoves);
     }
 
@@ -191,15 +203,16 @@ export default class App extends Component {
       return this.isPieceVulnerable(move.from.row, move.from.col, board);
     });
 
-    if (vulnerableMoves.length > 0) {
-      console.log("AI moving vulnerable piece");
+    if (vulnerableMoves.length > 0) { // Prioritize moves that move vulnerable pieces (if capture or king moves don't exist)
+      console.log("AI: AI moving vulnerable piece");
       return this.getRandomMove(vulnerableMoves);
     }
 
-    console.log("AI making normal move");
-    return this.getRandomMove(moves);
+    console.log("AI: AI making normal move");
+    return this.getRandomMove(moves); // Make a random move if no special moves are available
   };
 
+  // Checks if piece is vulnerable by seeing if it is in its opponent's list of capturable moves
   isPieceVulnerable = (row, col, board) => {
     const opponent = board[row][col].startsWith(PIECES.RED)
       ? PIECES.BLACK
@@ -237,8 +250,11 @@ export default class App extends Component {
     const selectedPieceLock =
       captureMoves.length > 0 &&
       this.hasCapturablePiece(row1, col1, row2, col2, this.state.board);
+    if (selectedPieceLock) console.log("Game update: Selection lock activated");
 
     const newWinner = this.checkWinner(newBoard); // Checks if a winner exists
+    if (newWinner) console.log("Game update: Winner: " + newWinner);
+
     this.setState(
       {
         board: newBoard,
@@ -296,17 +312,29 @@ export default class App extends Component {
   };
 
   // Checks if the move is valid
-  isValidMove = (row1, col1, row2, col2, board) => {
+  isValidMove = (row1, col1, row2, col2, board, silent=false) => {
     if (this.state.winner != null) {
       // If there's a winner, no moves are valid
-      console.log("Game is over");
+      if (!silent) console.log("Valid checker: Game is already over");
       return false;
     }
 
-    if (!this.isSpaceAvailable(row2, col2, board)) return false;
-    if (!this.isDiagonal(row1, col1, row2, col2)) return false;
-    if (!this.isDirectional(row1, col1, row2, board)) return false;
-    if (!this.isValidDistance(row1, col1, row2, col2, board)) return false;
+    if (!this.isSpaceAvailable(row2, col2, board)) { 
+      if (!silent) console.log("Valid checker: Space isn\'t available");
+      return false; 
+    }
+    if (!this.isDiagonal(row1, col1, row2, col2)) { 
+      if (!silent) console.log("Valid checker: Move isn\'t diagonal");
+      return false; 
+    }
+    if (!this.isDirectional(row1, col1, row2, board)) { 
+      if (!silent) console.log("Valid checker: Move doesn\'t match the piece\'s valid directions");
+      return false; 
+    };
+    if (!this.isValidDistance(row1, col1, row2, col2, board)) { 
+      if (!silent) console.log("Valid checker: Move is too far");
+      return false; 
+    }
 
     return true;
   };
@@ -375,6 +403,7 @@ export default class App extends Component {
     return true; // Move contains a capturable piece
   };
 
+  // Gets all valid moves for a specific player (all of their pieces)
   getAllValidMoves = (board, piece) => {
     const validMoves = [];
 
@@ -395,6 +424,7 @@ export default class App extends Component {
     return validMoves;
   };
 
+  // Generates all valid moves for a specific piece
   generateValidMoves = (row, col, board) => {
     const validMoves = [];
 
@@ -417,7 +447,8 @@ export default class App extends Component {
           direction.from.col,
           direction.to.row,
           direction.to.col,
-          board
+          board,
+          true,
         )
       )
         validMoves.push({
