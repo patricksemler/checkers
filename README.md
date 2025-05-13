@@ -9,10 +9,10 @@ Team: Patrick Semler and Siddharth Hazari
 - To allow two users to have the option to also play a local game of multiplayer. 
 
 **Architecture/Design:**
-- Home/Navigation Screen once the app opens, this screen shows options for starting a new game and choosing opponent (computer/local multiplayer).Screen also shows an option to view the rules of the game and how to play. Screen also shows an in-game store for cosmetic items able to be purchased by the reward points in the game.
+- Home/Navigation Screen once the app opens, this screen shows options for starting a new game and choosing opponent (computer/local multiplayer). Screen also shows an option to view the rules of the game and how to play. Screen also shows an in-game color customization panel.
 - Choosing an option results in a screen with a checkers layout board and the pieces for both players.
 - Users are able to move their pieces by the rules of the game and the entire game is played until the app deems a winning scenario by one of the players.
-- Once a game is over, and the user receives reward points or doesn't, the user is given the option to start a new game or return to the Home/Navigation screen.
+- Once a game is over, the user is able to return to the Home/Navigation screen and start a new game or customize their character.
 
 **Features:**
 - Users are able to drag and move pieces to their positions on moves.
