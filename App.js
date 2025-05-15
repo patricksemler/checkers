@@ -25,6 +25,11 @@ const PIECES = {
   BLACK_KING: "blackKing",
 };
 
+const COLORS = {
+    P1: "#ff3232",
+    P2: "#323232",
+};
+
 export default class App extends Component {
   state = {
     board: [], // Keeps track of the game's board
@@ -43,8 +48,8 @@ export default class App extends Component {
 
     viewedTutorial: false, // Keeps track of if the user has viewed the tutorial screen
 
-    player1Color: "#ff3232",
-    player2Color: "#323232",
+    player1Color: COLORS.P1,
+    player2Color: COLORS.P2,
     whiteBoardColor: "#eed9c4",
     blackBoardColor: "#626262",
   };
@@ -116,6 +121,16 @@ export default class App extends Component {
     });
 
     console.log("Game update: Game reset");
+  };
+
+  // Resets colors to the default state
+  resetColors = () => {
+    this.setState({
+      player1Color: COLORS.P1,
+      player2Color: COLORS.P2,
+    });
+
+    console.log("Game update: Game colors reset");
   };
 
   // Returns a new board with updated positions, captured pieces, and kings based off the move
@@ -661,6 +676,12 @@ export default class App extends Component {
                 this.setState({ player2Color: newColor })
               }
             />
+            <TouchableHighlight
+              style={styles.button}
+              onPress={() => {this.resetColors()}}
+            >
+              <Text style={styles.buttonText}>Reset</Text>
+            </TouchableHighlight>
             <TouchableHighlight
               style={styles.button}
               onPress={this.switchToHomeScreen}
